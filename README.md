@@ -2,7 +2,7 @@
 **Description**  
 An application that locates street-parking meters in the city of vancouver.
 ______
-**Main features**  
+**MVP features**  
 * Locates all the meters/accessible meters that are available at the moment of searching
 * Sort the available meters by price
 * Sort the available meters by distance
