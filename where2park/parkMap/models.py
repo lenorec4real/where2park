@@ -30,3 +30,4 @@ class Meter(models.Model):
     
     def getPayByPhoneID(self):
         return self.pay_phone
+
