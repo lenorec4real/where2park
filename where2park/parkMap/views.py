@@ -5,7 +5,7 @@ from datetime import datetime
 import math
 import json
 
-METER_NUM_DISPLAY = 20
+METER_NUM_DISPLAY = 40
 
 
 def index(request):
@@ -46,7 +46,7 @@ def getMeterRate(request, meter_id):
     up to 20 meters.
     Filter by the location first.
 '''
-def getClosestMeters(request, lat, lon, threshold):
+def getNearestMeters(request, lat, lon, threshold):
     meters = Meter.objects.all()
     lat = float(lat)
     lon = float(lon)
@@ -64,13 +64,17 @@ def getClosestMeters(request, lat, lon, threshold):
     token = f.read()
     f.close()
     meterList = [Meter.objects.filter(meter_id = x[0])[0] for x in meterList[:METER_NUM_DISPLAY]]
+    rate = [m.getCurrentRate() for m in meterList]
     result =  {
         'closest_meters':meterList, 
         'mapbox_access_token': token,
         'center_lat': lat,
-        'center_long': lon
+        'center_long': lon,
+        'rate': rate
         }
     return render(request, 'parkMap/meters.html',result)
+
+
 
 '''
     Compute ecludian distance between location1 and location2
