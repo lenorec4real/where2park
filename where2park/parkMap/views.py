@@ -5,6 +5,9 @@ from datetime import datetime
 import math
 import json
 
+METER_NUM_DISPLAY = 20
+
+
 def index(request):
     context = {'hi'}
     return render(request, 'parkMap/index.html')
@@ -49,16 +52,25 @@ def getClosestMeters(request, lat, lon, threshold):
     lon = float(lon)
     threshold = float(threshold)
     distance = dict()
+    result = dict()
     for meter in meters:
         dist = getDistance(lat, lon, meter.lat, meter.long)
         if (dist <= threshold):
             distance[meter.meter_id] = dist
-    distance = sorted(distance.items(), key=lambda x: x[1])
-    result = json.dumps(distance[:20])
-    return HttpResponse(result)
 
+    meterList = sorted(distance.items(), key=lambda x: x[1])
 
-
+    f = open('./parkMap/token.txt', 'r')
+    token = f.read()
+    f.close()
+    meterList = [Meter.objects.filter(meter_id = x[0])[0] for x in meterList[:METER_NUM_DISPLAY]]
+    result =  {
+        'closest_meters':meterList, 
+        'mapbox_access_token': token,
+        'center_lat': lat,
+        'center_long': lon
+        }
+    return render(request, 'parkMap/meters.html',result)
 
 '''
     Compute ecludian distance between location1 and location2
