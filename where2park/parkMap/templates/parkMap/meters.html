@@ -1,0 +1,49 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>where2park</title>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v0.44.2/mapbox-gl.js'></script>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.css' rel='stylesheet' />
+  </head>
+  <body>
+   <h1>Find your parking spot!</h1>
+   
+   <div id='map' width="100%" style='height:800px'></div>
+   <script>
+    mapboxgl.accessToken = '{{mapbox_access_token}}';
+    var map = new mapboxgl.Map({
+     container: 'map',
+     style: 'mapbox://styles/mapbox/streets-v10',
+     center: [{{center_long}}, {{center_lat}}],
+     zoom: 13
+    });
+    var marker = new mapboxgl.Marker({ color: 'black' })
+        .setLngLat([{{center_long}}, {{center_lat}}])
+        .setPopup(
+                new mapboxgl.Popup({ offset: 25}) // add popups
+                .setHTML(
+                    '<h3> you are here </h3>'
+                )
+            )
+        .addTo(map);
+
+    {% for meter in closest_meters %}
+        var marker = new mapboxgl.Marker()
+            .setLngLat([{{meter.long}}, {{meter.lat}}])
+            .setPopup(
+                new mapboxgl.Popup({ offset: 1}) // add popups
+                .setHTML(
+                    '<h3> Meter ID ' + {{meter.meter_id}} + '</h3>' +
+                    '<h3> Current rate is $ ' + {{meter.getCurrentRate}} +'</h3>'
+                )
+            )
+            .addTo(map);
+    {% endfor %}
+
+
+   </script>
+  </body>
+</html>
+
