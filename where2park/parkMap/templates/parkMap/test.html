@@ -15,10 +15,11 @@
 		}
 
 		#map {
-			position: absolute;
+			/* position: absolute;
 			top: 0;
-			bottom: 0;
+			bottom: 0; */
 			width: 100%;
+			height : 800px;
 		}
 	</style>
 </head>
@@ -30,8 +31,10 @@
 			font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
 		}
 	</style>
-	<div id="map"></div>
+	<h1>Find your parking spot!</h1>
+	<div id='map'></div>
 	<script>
+		THRESHOLD = '1'
 		mapboxgl.accessToken = '{{mapbox_access_token}}';
 		var map = new mapboxgl.Map({
 			container: 'map',
@@ -40,20 +43,23 @@
 			zoom: 13
 		});
 
+		// var img = new Image();   // Create new img element
+		// img.src = '/Users/lenorechen/Desktop/Personal Projects/where2park/data/parking_meters/assets/image/marker-icons/mapbox-marker-icon-20px-red.png'; // Set source path
 		map.on('load', () => {
 			// Add an image to use as a custom marker
 			map.loadImage(
-				// '/Users/lenorechen/Desktop/Personal Projects/where2park/data/parking_meters/assets/image/placeholder.png'
 				'https://docs.mapbox.com/mapbox-gl-js/assets/custom_marker.png',
 				(error, image) => {
 					if (error) throw error;
 					map.addImage('custom-marker', image);
-					// Add a GeoJSON source with 2 points
-					map.addSource('places', {
+			});
+			// Add a GeoJSON source with 2 points
+			map.addSource('places', {
 					'type': 'geojson',
 					'data': {
 					'type': 'FeatureCollection',
-					'features': [
+					'features': 
+					[
 						{% for meter in closest_meters %}
 							{
 								'type': 'Feature',
@@ -69,8 +75,8 @@
 							},
 						{% endfor %}
 					]
-				}
-			});
+						}
+					});
 
 			map.addSource('center', {
 				'type': 'geojson',
@@ -106,15 +112,12 @@
 				'type': 'circle',
 				'source': 'center',	
 				'paint': {
-					'circle-color': 'black',
+					'circle-color': 'green',
 					'circle-radius': 6,
 					'circle-stroke-width': 2,
 					'circle-stroke-color': '#ffffff'
 				},
 			})
-
-			});
-
 		});
 
 			// Create a popup, but don't add it to the map yet.
@@ -123,122 +126,123 @@
 				closeOnClick: false
 			});
 
-			map.on('mouseenter', 'places', function (e) {
-				// Change the cursor style as a UI indicator.
-				map.getCanvas().style.cursor = 'pointer';
+			const ids = ['places', 'center'];
+			ids.forEach((id) => {
+				map.on('mouseenter', id, function (e) {
+					// Change the cursor style as a UI indicator.
+					map.getCanvas().style.cursor = 'pointer';
 
-				var coordinates = e.features[0].geometry.coordinates.slice();
-				var description = e.features[0].properties.description;
+					var coordinates = e.features[0].geometry.coordinates.slice();
+					var description = e.features[0].properties.description;
 
-				// Ensure that if the map is zoomed out such that multiple
-				// copies of the feature are visible, the popup appears
-				// over the copy being pointed to.
-				while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-					coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-				}
+					// Ensure that if the map is zoomed out such that multiple
+					// copies of the feature are visible, the popup appears
+					// over the copy being pointed to.
+					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+					}
 
-				// Populate the popup and set its coordinates
-				// based on the feature found.
-				popup.setLngLat(coordinates).setHTML(description).addTo(map);
-			});
+					// Populate the popup and set its coordinates
+					// based on the feature found.
+					popup.setLngLat(coordinates).setHTML(description).addTo(map);
+				});
 
-			map.on('mouseleave', 'places', function () {
-				map.getCanvas().style.cursor = '';
-				popup.remove();
-			});
+				map.on('mouseleave', id, function () {
+					map.getCanvas().style.cursor = '';
+					popup.remove();
+				});
+			})
 
-			map.on('mouseenter', 'center', function (e) {
-				// Change the cursor style as a UI indicator.
-				map.getCanvas().style.cursor = 'pointer';
+			relocate = (data) => {
+				const meters = JSON.parse(data).closest_meters;
+							const ctr_lon = JSON.parse(data).center_long;
+							const ctr_lat = JSON.parse(data).center_lat;
+							var meters_geojson = []
+							meters.forEach(meter => {
+								geojson = {
+									'type': 'Feature',
+									'properties': {
+										'description':'<h3> Meter ID ' + meter['meter_id'] + '</h3>' +
+										'<h3> Current rate is $ ' + meter['curr_rate'] +'</h3>'
+											},
+									'geometry':{
+												'type': 'Point',
+												'coordinates': [meter['long'], meter['lat']]
+											}
+								}
+								meters_geojson.push(geojson);
+							});
 
-				var coordinates = e.features[0].geometry.coordinates.slice();
-				var description = e.features[0].properties.description;
+							map.getSource('places').setData({ 
+								'type': 'FeatureCollection',
+								'features': meters_geojson
+							});
 
-				// Ensure that if the map is zoomed out such that multiple
-				// copies of the feature are visible, the popup appears
-				// over the copy being pointed to.
-				while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-					coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-				}
-
-				// Populate the popup and set its coordinates
-				// based on the feature found.
-				popup.setLngLat(coordinates).setHTML(description).addTo(map);
-			});
-
-			map.on('mouseleave', 'center', function () {
-				map.getCanvas().style.cursor = '';
-				popup.remove();
-			});
-
-			add_marker =  (event) => {
-			var coordinates = event.lngLat;
-			marker.setLngLat(coordinates).addTo(map);
-			$.ajax({
-					type:"GET",
-					url: "/parkmap/update-marker/" + coordinates.lat + "/" + coordinates.lng + "/10",
-					success: function( data ) 
-					{
-						const meters = JSON.parse(data).closest_meters;
-						const ctr_lon = JSON.parse(data).center_long;
-						const ctr_lat = JSON.parse(data).center_lat;
-						// const meters_data = meters.map(meter => JSON.parse({
-						// 				'type': 'Feature',
-						// 				'properties': {
-						// 					'description':
-						// 					'<h3> Meter ID ' + meter.meter_id + '</h3>'
-						// 				},
-						// 				'geometry': {
-						// 					'type': 'Point',
-						// 					'coordinates': [meter.long, meter.lat]
-						// 				}
-						// 			}))
-						
-						// console.log(meters_data)
-
-						map.getSource('places').setData({ 
-							'type': 'FeatureCollection',
-							'features': [
-								{% for meter in meters %}
+							map.getSource('center').setData({
+								'type': 'FeatureCollection',
+								'features': [
 									{
 										'type': 'Feature',
 										'properties': {
 											'description':
-											'<h3> Meter ID ' + {{meter.meter_id}} + '</h3>'
+											'<h3> Your current location</h3>' 
 										},
 										'geometry': {
 											'type': 'Point',
-											'coordinates': [{{meter.long}}, {{meter.lat}}]
+											'coordinates': [ctr_lon, ctr_lat]
 										}
-									},
-								{% endfor %}
-							]	
-						});
-
-						map.getSource('center').setData({
-							'type': 'FeatureCollection',
-							'features': [
-								{
-									'type': 'Feature',
-									'properties': {
-										'description':
-										'<h3> Your current location</h3>' 
-									},
-									'geometry': {
-										'type': 'Point',
-										'coordinates': [ctr_lon, ctr_lat]
-									}
-								},]
+									},]
 							})
+							map.flyTo({
+								center: [ctr_lon, ctr_lat],
+								essential: true, // this animation is considered essential with respect to prefers-reduced-motion
+								zoom: 15
+							});
+			}
+
+
+			add_marker =  (event) => {
+				var coordinates = event.lngLat;
+				$.ajax({
+						type:"GET",
+						url: "/parkmap/update-marker/" + coordinates.lat + "/" + coordinates.lng + "/" + THRESHOLD,
+						success: function( data ) 
+						{
+							relocate(data);
+
 						}
 					})
-					console.log(map.getSource('center'))
-					console.log(map.getSource('places'))
 			}
 				
-			marker = new mapboxgl.Marker();
 			map.on('click', add_marker.bind());
+			// Add geolocate control to the map.
 
+			var geolocate = new mapboxgl.GeolocateControl({
+					positionOptions: {
+						enableHighAccuracy: true
+					},
+					// When active the map will receive updates to the device's location as it changes.
+					// trackUserLocation: true,
+					// Draw an arrow next to the location dot to indicate which direction the device is heading.
+					showUserHeading: true
+				});
+			map.addControl(geolocate);
+			
+			const trackLocation = (e) => {
+				var lon = e.coords.longitude;
+				var lat = e.coords.latitude
+				$.ajax({
+						type:"GET",
+						url: "/parkmap/update-marker/" + lat + "/" + lon + "/" + THRESHOLD,
+						success: function( data ) 
+						{
+							relocate(data);
+						}
+					})
+			}
+
+			geolocate.on('geolocate', trackLocation);
+			geolocate.on('trackuserlocationstart', trackLocation);
 			
 	</script>
 </body>

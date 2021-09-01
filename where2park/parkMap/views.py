@@ -92,7 +92,11 @@ def getNearestMetersJSON(request, lat, lon, threshold):
     f = open('./parkMap/token.txt', 'r')
     token = f.read()
     f.close()
-    meterList = [model_to_dict(Meter.objects.filter(meter_id = x[0])[0]) for x in meterList[:METER_NUM_DISPLAY]]
+    meterObjList = [Meter.objects.filter(meter_id = x[0])[0] for x in meterList[:METER_NUM_DISPLAY]]
+    meterList = [model_to_dict(x) for x in meterObjList]
+    for idx, meter in enumerate(meterList):
+        meter['curr_rate'] = meterObjList[idx].getCurrentRate();
+
     result =  {
         'closest_meters': meterList, 
         'mapbox_access_token': token,
