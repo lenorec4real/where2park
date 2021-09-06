@@ -73,7 +73,7 @@ def getNearestMeters(request, lat, lon, threshold):
         'center_lat': lat,
         'center_long': lon,
         } 
-    return render(request, 'parkMap/test.html',result)
+    return render(request, 'parkMap/meters.html',result)
     # return render(request, 'parkMap/meters.html',result)
 
 def getNearestMetersJSON(request, lat, lon, threshold):
