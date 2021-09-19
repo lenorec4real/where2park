@@ -38,6 +38,7 @@
 	<script>
 		THRESHOLD = '1'
 		mapboxgl.accessToken = '{{mapbox_access_token}}';
+
 		var map = new mapboxgl.Map({
 			container: 'map',
 			style: 'mapbox://styles/mapbox/streets-v11',
@@ -45,23 +46,32 @@
 			zoom: 13
 		});
 
-		// var img = new Image();   // Create new img element
-		// img.src = '/Users/lenorechen/Desktop/Personal Projects/where2park/data/parking_meters/assets/image/marker-icons/mapbox-marker-icon-20px-red.png'; // Set source path
-		map.on('load', () => {
-			// Add an image to use as a custom marker
-			map.loadImage(
-				'https://docs.mapbox.com/mapbox-gl-js/assets/custom_marker.png',
-				(error, image) => {
-					if (error) throw error;
-					map.addImage('custom-marker', image);
-			});
-			// Add a GeoJSON source with 2 points
-			map.addSource('places', {
-					'type': 'geojson',
+		// Create a popup, but don't add it to the map yet.
+		var popup = new mapboxgl.Popup({
+			closeButton: false,
+			closeOnClick: false
+		});		
+
+		const addGeoSource = (id, features) => {
+			map.addSource(id, {
+				'type': 'geojson',
 					'data': {
 					'type': 'FeatureCollection',
-					'features': 
-					[
+					'features': features,
+					},
+			})
+		}
+		const resetSourceData = (id, newFeatures) => {
+			console.log(id);
+			console.log(map.getSource(id))
+			map.getSource(id).setData({ 
+				'type': 'FeatureCollection',
+				'features': newFeatures
+			});
+		}
+
+
+		featuresInit = [
 						{% for meter in closest_meters %}
 							{
 								'type': 'Feature',
@@ -76,15 +86,8 @@
 								}
 							},
 						{% endfor %}
-					]
-						}
-					});
-
-			map.addSource('center', {
-				'type': 'geojson',
-				'data': {
-					'type': 'FeatureCollection',
-					'features': [
+					];
+			centerInit = [
 						{
 							'type': 'Feature',
 							'properties': {
@@ -96,10 +99,21 @@
 								'coordinates': [{{center_long}}, {{center_lat}}]
 							}
 						},
-					]
-				}
+					];
+
+		map.on('load', () => {
+			// Add an image to use as a custom marker
+			map.loadImage(
+				'https://docs.mapbox.com/mapbox-gl-js/assets/custom_marker.png',
+				(error, image) => {
+					if (error) throw error;
+					map.addImage('custom-marker', image);
 			});
-		
+
+			
+			addGeoSource('places', featuresInit);
+			addGeoSource('center', centerInit)
+
 			map.addLayer({
 				'id': 'places',
 				'type': 'symbol',
@@ -138,11 +152,6 @@
             });
 		});
 
-			// Create a popup, but don't add it to the map yet.
-			var popup = new mapboxgl.Popup({
-				closeButton: false,
-				closeOnClick: false
-			});
 
 			const ids = ['places', 'center'];
 			ids.forEach((id) => {
@@ -190,15 +199,8 @@
 								}
 								meters_geojson.push(geojson);
 							});
-
-							map.getSource('places').setData({ 
-								'type': 'FeatureCollection',
-								'features': meters_geojson
-							});
-
-							map.getSource('center').setData({
-								'type': 'FeatureCollection',
-								'features': [
+							resetSourceData('places', meters_geojson);
+							resetSourceData('center', [
 									{
 										'type': 'Feature',
 										'properties': {
@@ -209,8 +211,8 @@
 											'type': 'Point',
 											'coordinates': [ctr_lon, ctr_lat]
 										}
-									},]
-							})
+									}])
+
 							map.flyTo({
 								center: [ctr_lon, ctr_lat],
 								essential: true, // this animation is considered essential with respect to prefers-reduced-motion
@@ -218,7 +220,7 @@
 							});
 			}
 
-
+			// select a location on click
 			add_marker =  (event) => {
 				var coordinates = event.lngLat;
 				$.ajax({
@@ -227,14 +229,12 @@
 						success: function( data ) 
 						{
 							relocate(data);
-
 						}
 					})
-			}
-				
+			} 
 			map.on('click', add_marker.bind());
+			
 			// Add geolocate control to the map.
-
 			var geolocate = new mapboxgl.GeolocateControl({
 					positionOptions: {
 						enableHighAccuracy: true
@@ -246,6 +246,7 @@
 				});
 			map.addControl(geolocate);
 			
+			// add find my location feature
 			const trackLocation = (e) => {
 				var lon = e.coords.longitude;
 				var lat = e.coords.latitude
@@ -264,15 +265,15 @@
 
             const geocoder = new MapboxGeocoder({
             // Initialize the geocoder
-            accessToken: mapboxgl.accessToken, // Set the access token
-            placeholder: 'Search for places in Vancouver',
-            mapboxgl: mapboxgl, // Set the mapbox-gl instance
-            marker: false, // Do not use the default marker style
-            bbox: [-123.296940, 49.190447, -123.021939, 49.292881 ], // Boundary for Vancouver
-            proximity: {
-                longitude: -123.116226,
-                latitude:  49.246292
-            } // Coordinates of Vancouver
+				accessToken: mapboxgl.accessToken, // Set the access token
+				placeholder: 'Search for places in Vancouver',
+				mapboxgl: mapboxgl, // Set the mapbox-gl instance
+				marker: false, // Do not use the default marker style
+				bbox: [-123.296940, 49.190447, -123.021939, 49.292881 ], // Boundary for Vancouver
+				proximity: {
+					longitude: -123.116226,
+					latitude:  49.246292
+				} // Coordinates of Vancouver
             });
 
             // Add the geocoder to the map
