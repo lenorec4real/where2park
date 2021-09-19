@@ -62,13 +62,24 @@
 			})
 		}
 		const resetSourceData = (id, newFeatures) => {
-			console.log(id);
-			console.log(map.getSource(id))
 			map.getSource(id).setData({ 
 				'type': 'FeatureCollection',
 				'features': newFeatures
 			});
 		}
+
+		const geocoder = new MapboxGeocoder({
+        // Initialize the geocoder
+			accessToken: mapboxgl.accessToken, // Set the access token
+			placeholder: 'Search for places in Vancouver',
+			mapboxgl: mapboxgl, // Set the mapbox-gl instance
+			marker: false, // Do not use the default marker style
+			bbox: [-123.296940, 49.190447, -123.021939, 49.292881 ], // Boundary for Vancouver
+			proximity: {
+				longitude: -123.116226,
+				latitude:  49.246292
+			} // Coordinates of Vancouver
+        });
 
 
 		featuresInit = [
@@ -101,6 +112,7 @@
 						},
 					];
 
+		// load map and default center
 		map.on('load', () => {
 			// Add an image to use as a custom marker
 			map.loadImage(
@@ -135,7 +147,6 @@
 				},
 			})
 
-
             // Listen for the `result` event from the Geocoder
             // `result` event is triggered when a user makes a selection
             //  Add a marker at the result's coordinates
@@ -152,102 +163,249 @@
             });
 		});
 
+		// add pop up event listeners
+		const ids = ['places', 'center'];
+		ids.forEach((id) => {
+			map.on('mouseenter', id, function (e) {
+				// Change the cursor style as a UI indicator.
+				map.getCanvas().style.cursor = 'pointer';
 
-			const ids = ['places', 'center'];
-			ids.forEach((id) => {
-				map.on('mouseenter', id, function (e) {
-					// Change the cursor style as a UI indicator.
-					map.getCanvas().style.cursor = 'pointer';
+				var coordinates = e.features[0].geometry.coordinates.slice();
+				var description = e.features[0].properties.description;
 
-					var coordinates = e.features[0].geometry.coordinates.slice();
-					var description = e.features[0].properties.description;
+				// Ensure that if the map is zoomed out such that multiple
+				// copies of the feature are visible, the popup appears
+				// over the copy being pointed to.
+				while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+					coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+				}
 
-					// Ensure that if the map is zoomed out such that multiple
-					// copies of the feature are visible, the popup appears
-					// over the copy being pointed to.
-					while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-						coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-					}
+				// Populate the popup and set its coordinates
+				// based on the feature found.
+				popup.setLngLat(coordinates).setHTML(description).addTo(map);
+			});
 
-					// Populate the popup and set its coordinates
-					// based on the feature found.
-					popup.setLngLat(coordinates).setHTML(description).addTo(map);
-				});
+			map.on('mouseleave', id, function () {
+				map.getCanvas().style.cursor = '';
+				popup.remove();
+			});
+		})
 
-				map.on('mouseleave', id, function () {
-					map.getCanvas().style.cursor = '';
-					popup.remove();
-				});
-			})
-
-			relocate = (data) => {
-				const meters = JSON.parse(data).closest_meters;
-							const ctr_lon = JSON.parse(data).center_long;
-							const ctr_lat = JSON.parse(data).center_lat;
-							var meters_geojson = []
-							meters.forEach(meter => {
-								geojson = {
-									'type': 'Feature',
-									'properties': {
-										'description':'<h3> Meter ID ' + meter['meter_id'] + '</h3>' +
-										'<h3> Current rate is $ ' + meter['curr_rate'] +'</h3>'
-											},
-									'geometry':{
-												'type': 'Point',
-												'coordinates': [meter['long'], meter['lat']]
-											}
-								}
-								meters_geojson.push(geojson);
-							});
-							resetSourceData('places', meters_geojson);
-							resetSourceData('center', [
-									{
-										'type': 'Feature',
-										'properties': {
-											'description':
-											'<h3> Your current location</h3>' 
-										},
-										'geometry': {
-											'type': 'Point',
-											'coordinates': [ctr_lon, ctr_lat]
-										}
-									}])
-
-							map.flyTo({
-								center: [ctr_lon, ctr_lat],
-								essential: true, // this animation is considered essential with respect to prefers-reduced-motion
-								zoom: 15
-							});
-			}
-
-			// select a location on click
-			add_marker =  (event) => {
-				var coordinates = event.lngLat;
-				$.ajax({
-						type:"GET",
-						url: "/parkmap/update-marker/" + coordinates.lat + "/" + coordinates.lng + "/" + THRESHOLD,
-						success: function( data ) 
-						{
-							relocate(data);
+		// relocate function called when a new center is defined
+		relocate = (data) => {
+			const meters = JSON.parse(data).closest_meters;
+			const ctr_lon = JSON.parse(data).center_long;
+			const ctr_lat = JSON.parse(data).center_lat;
+			var meters_geojson = []
+			meters.forEach(meter => {
+				geojson = {
+					'type': 'Feature',
+					'properties': {
+						'description':'<h3> Meter ID ' + meter['meter_id'] + '</h3>' +
+						'<h3> Current rate is $ ' + meter['curr_rate'] +'</h3>'
+							},
+					'geometry':{
+								'type': 'Point',
+								'coordinates': [meter['long'], meter['lat']]
+							}
+				}
+				meters_geojson.push(geojson);
+			});
+			resetSourceData('places', meters_geojson);
+			resetSourceData('center', [
+					{
+						'type': 'Feature',
+						'properties': {
+							'description':
+							'<h3> Your current location</h3>' 
+						},
+						'geometry': {
+							'type': 'Point',
+							'coordinates': [ctr_lon, ctr_lat]
 						}
-					})
-			} 
-			map.on('click', add_marker.bind());
-			
-			// Add geolocate control to the map.
-			var geolocate = new mapboxgl.GeolocateControl({
-					positionOptions: {
-						enableHighAccuracy: true
-					},
-					// When active the map will receive updates to the device's location as it changes.
-					// trackUserLocation: true,
-					// Draw an arrow next to the location dot to indicate which direction the device is heading.
-					showUserHeading: true
-				});
-			map.addControl(geolocate);
-			
-			// add find my location feature
-			const trackLocation = (e) => {
+					}])
+
+			map.flyTo({
+				center: [ctr_lon, ctr_lat],
+				essential: true, // this animation is considered essential with respect to prefers-reduced-motion
+				zoom: 15
+			});
+		}
+
+		// select a location on click
+		add_marker =  (event) => {
+			var coordinates = event.lngLat;
+			$.ajax({
+					type:"GET",
+					url: "/parkmap/update-marker/" + coordinates.lat + "/" + coordinates.lng + "/" + THRESHOLD,
+					success: function( data ) 
+					{
+						relocate(data);
+					}
+				})
+		} 
+
+		
+		// Add geolocate control to the map.
+		var geolocate = new mapboxgl.GeolocateControl({
+				positionOptions: {
+					enableHighAccuracy: true
+				},
+				// When active the map will receive updates to the device's location as it changes.
+				// trackUserLocation: true,
+				// Draw an arrow next to the location dot to indicate which direction the device is heading.
+				showUserHeading: true
+			});
+		map.addControl(geolocate);
+
+
+
+
+
+	// THIS BLOCK IS FOR NAVIGATION, COMMENT OUT FOR MVP DEPLOYMENT
+
+		// // request direction
+		// // create a function to make a directions request
+		// async function getRoute(end) {
+		// // make a directions request using cycling profile
+		// // an arbitrary start will always be the same
+		// // only the end or destination will change
+		// const query = await fetch(
+		// 	`https://api.mapbox.com/directions/v5/mapbox/cycling/${start[0]},${start[1]};${end[0]},${end[1]}?steps=true&geometries=geojson&access_token=${mapboxgl.accessToken}`,
+		// 	{ method: 'GET' }
+		// );
+		// const json = await query.json();
+		// const data = json.routes[0];
+		// const route = data.geometry.coordinates;
+		// const geojson = {
+		// 	type: 'Feature',
+		// 	properties: {},
+		// 	geometry: {
+		// 	type: 'LineString',
+		// 	coordinates: route
+		// 	}
+		// };
+		// // if the route already exists on the map, we'll reset it using setData
+		// if (map.getSource('route')) {
+		// 	map.getSource('route').setData(geojson);
+		// }
+		// // otherwise, we'll make a new request
+		// else {
+		// 	map.addLayer({
+		// 	id: 'route',
+		// 	type: 'line',
+		// 	source: {
+		// 		type: 'geojson',
+		// 		data: geojson
+		// 	},
+		// 	layout: {
+		// 		'line-join': 'round',
+		// 		'line-cap': 'round'
+		// 	},
+		// 	paint: {
+		// 		'line-color': '#3887be',
+		// 		'line-width': 5,
+		// 		'line-opacity': 0.75
+		// 	}
+		// 	});
+		// }
+		// // add turn instructions here at the end
+		// }
+
+		// map.on('load', () => {
+		// start =	map.getSource('center')._data.features[0].geometry.coordinates;
+		
+		// // make an initial directions request that
+		// // starts and ends at the same location
+		// getRoute(start);
+
+		// // Add starting point to the map
+		// map.addLayer({
+		// 	id: 'point',
+		// 	type: 'circle',
+		// 	source: {
+		// 	type: 'geojson',
+		// 	data: {
+		// 		type: 'FeatureCollection',
+		// 		features: [
+		// 		{
+		// 			type: 'Feature',
+		// 			properties: {},
+		// 			geometry: {
+		// 			type: 'Point',
+		// 			coordinates: start
+		// 			}
+		// 		}
+		// 		]
+		// 	}
+		// 	},
+		// 	paint: {
+		// 	'circle-radius': 10,
+		// 	'circle-color': '#3887be'
+		// 	}
+		// });
+		// // this is where the code from the next step will go
+		// });
+		// When a click event occurs on a feature in the places layer, open a popup at the
+		// location of the feature, with description HTML from its properties.
+		// map.on('click', 'places', (e) => {
+		// // Copy coordinates array.
+		// e.preventDefault();
+		// const coordinates = e.features[0].geometry.coordinates.slice();
+		// const description = e.features[0].properties.description;
+		
+		// const end = {
+		// 	type: 'FeatureCollection',
+		// 	features: [
+		// 	{
+		// 		type: 'Feature',
+		// 		properties: {},
+		// 		geometry: {
+		// 		type: 'Point',
+		// 		coordinates: coordinates
+		// 		}
+		// 	}
+		// 	]
+		// };
+		// if (map.getLayer('end')) {
+		// 	map.getSource('end').setData(end);
+		// } else {
+		// 	map.addLayer({
+		// 	id: 'end',
+		// 	type: 'circle',
+		// 	source: {
+		// 		type: 'geojson',
+		// 		data: {
+		// 		type: 'FeatureCollection',
+		// 		features: [
+		// 			{
+		// 			type: 'Feature',
+		// 			properties: {},
+		// 			geometry: {
+		// 				type: 'Point',
+		// 				coordinates: coordinates
+		// 			}
+		// 			}
+		// 		]
+		// 		}
+		// 	},
+		// 	paint: {
+		// 		'circle-radius': 10,
+		// 		'circle-color': '#f30'
+		// 	}
+		// 	});
+		// }
+		// getRoute(coordinates);
+		// });
+
+		// map.on('click', add_marker.bind());
+		map.on('click', function(e) {
+			if (e.defaultPrevented === false) {
+			add_marker(e);
+			}
+		});		
+		// add find my location feature
+		const trackLocation = (e) => {
 				var lon = e.coords.longitude;
 				var lat = e.coords.latitude
 				$.ajax({
@@ -260,24 +418,13 @@
 					})
 			}
 
-			geolocate.on('geolocate', trackLocation);
-			geolocate.on('trackuserlocationstart', trackLocation);
+		geolocate.on('geolocate', trackLocation);
+		geolocate.on('trackuserlocationstart', trackLocation);
 
-            const geocoder = new MapboxGeocoder({
-            // Initialize the geocoder
-				accessToken: mapboxgl.accessToken, // Set the access token
-				placeholder: 'Search for places in Vancouver',
-				mapboxgl: mapboxgl, // Set the mapbox-gl instance
-				marker: false, // Do not use the default marker style
-				bbox: [-123.296940, 49.190447, -123.021939, 49.292881 ], // Boundary for Vancouver
-				proximity: {
-					longitude: -123.116226,
-					latitude:  49.246292
-				} // Coordinates of Vancouver
-            });
 
-            // Add the geocoder to the map
-            map.addControl(geocoder);
+
+        // Add the geocoder to the map
+        map.addControl(geocoder);
 			
 	</script>
 </body>
