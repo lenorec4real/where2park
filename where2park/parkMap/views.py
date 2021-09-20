@@ -50,7 +50,10 @@ def getMeterRate(request, meter_id):
     up to *METER_NUM_DISPLAY* meters.
     Filter by the location first.
 '''
-def getNearestMeters(request, lat, lon, threshold):
+def getNearestMeters(request):
+    lat = 49.282730
+    lon = -123.120735
+    threshold = 10
     meters = Meter.objects.all()
     lat = float(lat)
     lon = float(lon)
