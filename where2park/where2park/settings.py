@@ -27,8 +27,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'cg#p$g+j9tax!#a3cup@1$8obt2_+&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'find-your-parking.herokuapp.com']
-
+ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'find-your-parkings.herokuapp.com']
 
 # Application definition
 
@@ -79,11 +78,16 @@ WSGI_APPLICATION = 'where2park.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # 'ENGINE': 'django.db.backends.sqlite3',
+        # 'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'de6br6698r1d02',
+        'HOST': 'ec2-34-227-120-94.compute-1.amazonaws.com',
+        'PORT': 5432,
+        'USER': 'ewfczkfxzndbex',
+        'PASSWORD': 'c3fedf47457756cc2e59cedc803562e3941dd5680c1f339b52bc132cebc9c3e4'
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
